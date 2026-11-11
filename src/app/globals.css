@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --iris: linear-gradient(115deg, #c9b8ff 0%, #b8d4ff 32%, #ffd1e3 66%, #ffd8b8 100%);
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper text-ink font-sans;
+  }
+  ::selection {
+    background: #e5dcff;
+    color: #0b0b0f;
+  }
+  :focus-visible {
+    outline: 2px solid #8f7cff;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+}
+
+@layer components {
+  .site-container {
+    @apply mx-auto w-full max-w-site px-5 sm:px-8 lg:px-12;
+  }
+  .eyebrow {
+    @apply text-[0.72rem] font-medium uppercase tracking-[0.18em] text-ink-muted;
+  }
+  .display {
+    @apply font-display font-normal leading-[0.95] tracking-[-0.02em];
+  }
+  .iris-text {
+    background: var(--iris);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .iris-bg {
+    background: var(--iris);
+  }
+  .iris-border {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#fff, #fff) padding-box,
+      var(--iris) border-box;
+  }
+  .card {
+    @apply rounded-3xl border border-paper-line bg-white;
+  }
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .field-hint {
+    @apply mt-1.5 text-xs text-ink-muted;
+  }
+  .field-error {
+    @apply mt-1.5 text-xs font-medium text-rose-600;
+  }
+  .input {
+    @apply block w-full rounded-xl border border-paper-line bg-white px-4 py-3 text-[0.95rem] text-ink placeholder:text-ink-faint
+      transition focus:border-ink focus:outline-none focus:ring-4 focus:ring-iris-lavender/40;
+  }
+  .prose-ipply {
+    @apply text-[1.05rem] leading-[1.75] text-ink-soft;
+  }
+  .prose-ipply p + p {
+    @apply mt-5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

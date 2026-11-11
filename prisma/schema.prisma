@@ -1,0 +1,425 @@
+// IPPLY data model
+//
+// Design notes
+// - Creators own their IP. Nothing in this schema transfers rights to IPPLY; any
+//   licence, option or development right is a separate, explicit record
+//   (Enquiry today; Agreement in a future release).
+// - Ownership claims are "creator-declared" by default. Only an administrator
+//   can move a project's rightsStatus forward, and VERIFIED is reserved for a
+//   future verification process with evidence behind it.
+// - A project can have many contributors and rights holders (ProjectContributor).
+// - Demonstration content is flagged with isDemo so it can always be labelled
+//   and hidden as a group.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+enum Role {
+  CREATOR
+  PARTNER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(CREATOR)
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions       Session[]
+  creatorProfile CreatorProfile?
+  memberships    OrganizationMember[]
+  projects       Project[]            @relation("ProjectOwner")
+  follows        Follow[]
+  saves          SavedProject[]
+  enquiries      Enquiry[]            @relation("EnquirySubmitter")
+  messages       EnquiryMessage[]
+  uploads        MediaAsset[]
+  moderation     ModerationEvent[]
+  contributions  ProjectContributor[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model CreatorProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  handle      String  @unique
+  displayName String
+  headline    String?
+  bio         String?
+  location    String?
+  website     String?
+}
+
+enum OrganizationType {
+  TOY_AND_CONSUMER_PRODUCTS
+  FILM_AND_TELEVISION
+  ANIMATION_STUDIO
+  MUSIC
+  THEATRE
+  PUBLISHING
+  GAMES
+  FASHION_AND_LIFESTYLE
+  RETAIL
+  AGENCY
+  OTHER
+}
+
+model Organization {
+  id          String           @id @default(cuid())
+  name        String
+  type        OrganizationType
+  website     String?
+  country     String?
+  description String?
+  // Organisation identity is self-declared until reviewed by IPPLY.
+  verified    Boolean          @default(false)
+  isDemo      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  members   OrganizationMember[]
+  enquiries Enquiry[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  title          String?
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+// ───────────────────────────── Intellectual property ─────────────────────────────
+
+enum ProjectCategory {
+  CHARACTERS_WORLDS
+  FILM_TV
+  MUSIC
+  THEATRE
+  BOOKS
+  GAMES
+  ART_DESIGN
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  CHANGES_REQUESTED
+  ARCHIVED
+}
+
+enum RightsStatus {
+  CREATOR_DECLARED // creator states they own / control the rights
+  UNDER_REVIEW // IPPLY is reviewing supporting documentation
+  VERIFIED // reserved: documented verification completed
+  DISPUTED
+}
+
+enum LicensingCategory {
+  PLUSH_AND_TOYS
+  COLLECTIBLES
+  TRADING_CARDS
+  PUBLISHING
+  APPAREL
+  ACCESSORIES
+  LIFESTYLE_PRODUCTS
+  ANIMATION
+  FILM_TV
+  GAMES
+  MUSIC
+  LIVE_AND_THEATRE
+  EXPERIENCES
+}
+
+model Project {
+  id       String          @id @default(cuid())
+  slug     String          @unique
+  ownerId  String
+  owner    User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  category ProjectCategory
+  status   ProjectStatus   @default(DRAFT)
+
+  title    String
+  tagline  String?
+  logline  String?
+  overview String?
+  world    String?
+  audience String?
+  formats  String[] // e.g. "Animated series (11 min)", "Picture book"
+  genres   String[]
+
+  // Visual identity. keyArt is a generative poster spec used until the creator
+  // uploads a cover image.
+  coverImageId String?    @unique
+  coverImage   MediaAsset? @relation("ProjectCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  keyArt       Json?
+
+  // Rights & disclosure
+  rightsStatus        RightsStatus @default(CREATOR_DECLARED)
+  ownershipDeclaredAt DateTime?
+  aiAssisted          Boolean      @default(false)
+  aiDisclosure        String?
+
+  // Commercial
+  openToLicensing     Boolean             @default(true)
+  openToDevelopment   Boolean             @default(true)
+  licensingCategories LicensingCategory[]
+  commercialNotes     String?
+
+  // Curation & visibility
+  featured     Boolean   @default(false)
+  hidden       Boolean   @default(false) // admin takedown, independent of status
+  isDemo       Boolean   @default(false)
+  submittedAt  DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  characters   Character[]
+  media        MediaAsset[]         @relation("ProjectMedia")
+  updates      ProjectUpdate[]
+  contributors ProjectContributor[]
+  follows      Follow[]
+  saves        SavedProject[]
+  enquiries    Enquiry[]
+  views        ProjectViewDaily[]
+  moderation   ModerationEvent[]
+  studio       StudioOpportunity?
+
+  @@index([status, hidden, category])
+  @@index([ownerId])
+  @@index([featured])
+}
+
+model ProjectContributor {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId         String? // contributors need not have an IPPLY account
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name           String
+  role           String // "Creator", "Illustrator", "Composer", "Co-writer"…
+  isRightsHolder Boolean  @default(false)
+  // Declared share, in basis points (10000 = 100%). Declarative only.
+  shareBps       Int?
+  createdAt      DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Character {
+  id          String  @id @default(cuid())
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  role        String?
+  description String?
+  sortOrder   Int     @default(0)
+
+  @@index([projectId])
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+model MediaAsset {
+  id         String    @id @default(cuid())
+  projectId  String?
+  project    Project?  @relation("ProjectMedia", fields: [projectId], references: [id], onDelete: Cascade)
+  coverOf    Project?  @relation("ProjectCover")
+  uploaderId String
+  uploader   User      @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  kind       MediaKind
+  storageKey String    @unique
+  url        String
+  mimeType   String
+  sizeBytes  Int
+  caption    String?
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+model ProjectUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+// ───────────────────────────── Audience ─────────────────────────────
+
+model Follow {
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@index([projectId])
+}
+
+// Private saves; for partners this is their shortlist.
+model SavedProject {
+  userId    String
+  projectId String
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@index([projectId])
+}
+
+// Daily aggregate of real public page views (owner views excluded).
+model ProjectViewDaily {
+  projectId String
+  day       DateTime @db.Date
+  count     Int      @default(0)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, day])
+}
+
+// ───────────────────────────── Commercial ─────────────────────────────
+
+enum EnquiryType {
+  LICENSING
+  DEVELOPMENT
+  COLLABORATION
+  OPTION_OR_ACQUISITION
+}
+
+enum Exclusivity {
+  EXCLUSIVE
+  NON_EXCLUSIVE
+  SOLE
+  OPEN_TO_DISCUSSION
+}
+
+enum EnquiryStatus {
+  SUBMITTED
+  UNDER_REVIEW // creator has opened / is considering
+  IN_DISCUSSION
+  TERMS_PROPOSED
+  AGREED_IN_PRINCIPLE // not a contract — contracts are executed outside IPPLY today
+  DECLINED
+  WITHDRAWN
+}
+
+model Enquiry {
+  id             String              @id @default(cuid())
+  reference      String              @unique // human-friendly, e.g. IPL-7K2Q9M
+  projectId      String
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submittedById  String
+  submittedBy    User                @relation("EnquirySubmitter", fields: [submittedById], references: [id], onDelete: Cascade)
+  type           EnquiryType
+  categories     LicensingCategory[]
+  territories    String[]
+  exclusivity    Exclusivity
+  termMonths     Int?
+  intendedUse    String
+  proposedTerms  String?
+  budgetRange    String?
+  launchWindow   String?
+  status         EnquiryStatus       @default(SUBMITTED)
+  isDemo         Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  messages EnquiryMessage[]
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model EnquiryMessage {
+  id        String   @id @default(cuid())
+  enquiryId String
+  enquiry   Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  body      String
+  // System events (status changes) are stored as messages with kind=EVENT
+  kind      String   @default("MESSAGE")
+  createdAt DateTime @default(now())
+
+  @@index([enquiryId, createdAt])
+}
+
+// ───────────────────────────── Studio & moderation ─────────────────────────────
+
+enum StudioStage {
+  SCOUTED
+  EVALUATING
+  IN_CONVERSATION
+  IN_DEVELOPMENT
+  PASSED
+}
+
+model StudioOpportunity {
+  id        String      @id @default(cuid())
+  projectId String      @unique
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage     StudioStage @default(SCOUTED)
+  formats   String[] // e.g. "Animated short", "Plush range"
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model ModerationEvent {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String // SUBMITTED, APPROVED, CHANGES_REQUESTED, FEATURED, HIDDEN…
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
