@@ -170,10 +170,10 @@ Re-running `npm run db:seed` deletes and recreates **only** records flagged as d
 
 ### Vercel (or any serverless host)
 
-1. Provision PostgreSQL (e.g. Neon) and set `DATABASE_URL`.
-2. Set `STORAGE_DRIVER=s3` and the `S3_*` variables — serverless filesystems are ephemeral, so local uploads will not persist.
-3. Build command: `npm run build`. Run `npm run db:deploy` against the production database before (or as part of) each release.
-4. Optionally run `npm run db:seed` once to load demo content, and set a strong `SEED_DEMO_PASSWORD` first.
+1. Provision PostgreSQL (e.g. Neon) and add `DATABASE_URL` in **Settings → Environment Variables** (tick Production). Prefer the **direct** (non-pooled) connection string so migrations can run.
+2. Optionally add `SEED_DEMO_PASSWORD`.
+3. Leave the Build Command on its default. Vercel runs the `vercel-build` script, which applies migrations, loads demo content **only if the database has no projects yet**, and builds the app.
+4. For uploads, set `STORAGE_DRIVER=s3` and the `S3_*` variables — serverless filesystems are ephemeral, so local uploads will not persist.
 
 ### Docker / Railway / Fly / Render
 
