@@ -5,7 +5,11 @@
 import { execSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 
-const db = new PrismaClient();
+// Accept whichever variable a host database integration provides.
+const dbUrl = ["DATABASE_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL", "DATABASE_URL_UNPOOLED", "POSTGRES_URL_NON_POOLING"]
+  .map((k) => process.env[k])
+  .find(Boolean);
+const db = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
 
 async function main() {
   const projects = await db.project.count();

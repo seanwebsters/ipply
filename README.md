@@ -170,10 +170,11 @@ Re-running `npm run db:seed` deletes and recreates **only** records flagged as d
 
 ### Vercel (or any serverless host)
 
-1. Provision PostgreSQL (e.g. Neon) and add `DATABASE_URL` in **Settings → Environment Variables** (tick Production). Prefer the **direct** (non-pooled) connection string so migrations can run.
-2. Optionally add `SEED_DEMO_PASSWORD`.
-3. Leave the Build Command on its default. Vercel runs the `vercel-build` script, which applies migrations, loads demo content **only if the database has no projects yet**, and builds the app.
-4. For uploads, set `STORAGE_DRIVER=s3` and the `S3_*` variables — serverless filesystems are ephemeral, so local uploads will not persist.
+1. Import the repository into Vercel and leave the Build Command on its default.
+2. In the project, open **Storage → Create Database → Neon (Serverless Postgres) → Connect**. Vercel adds the connection variables automatically; IPPLY accepts `DATABASE_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL` or their unpooled variants.
+3. Redeploy. The `vercel-build` script applies migrations, loads demo content **only if the database has no projects yet**, and builds the app. If no database is connected, the build stops with instructions.
+4. Optionally set `SEED_DEMO_PASSWORD` before the first deploy (default `ipply-demo-2026`).
+5. For uploads, set `STORAGE_DRIVER=s3` and the `S3_*` variables — serverless filesystems are ephemeral, so local uploads will not persist.
 
 ### Docker / Railway / Fly / Render
 

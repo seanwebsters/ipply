@@ -11,7 +11,11 @@ import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient, type LicensingCategory, type ProjectCategory, type ProjectStatus } from "@prisma/client";
 
-const db = new PrismaClient();
+// Accept whichever variable a host database integration provides.
+const dbUrl = ["DATABASE_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL", "DATABASE_URL_UNPOOLED", "POSTGRES_URL_NON_POOLING"]
+  .map((k) => process.env[k])
+  .find(Boolean);
+const db = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD || "ipply-demo-2026";
 const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 
