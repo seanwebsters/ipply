@@ -38,6 +38,9 @@ const DIVISIONS = [
   { name: "Experiences", body: "Concerts, theatre, exhibitions and live events.", status: "Future" },
 ];
 
+// Always render on request: the page reads live data and must never touch the database at build time.
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [featured, recent] = await Promise.all([featuredProjects(5), recentProjects(8)]);
   const [lead, ...rest] = featured;

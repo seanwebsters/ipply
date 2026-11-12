@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   },
 };
 
+// Every page shows live, per-user data, so nothing is prerendered at build time
+// (and the build never needs a database connection).
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = { themeColor: "#0B0B0F" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
